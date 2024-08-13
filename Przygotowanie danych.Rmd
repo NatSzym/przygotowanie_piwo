@@ -1,0 +1,1018 @@
+---
+title: "Przygotowanie danych"
+author: "Natalia Szymańska"
+date: "13 06 2023"
+output: html_document
+---
+Wczytanie danych:
+
+```{r}
+recipeData <- read.csv("C:/Users/Natalia/Desktop/Studia II stopnia/Semestr 2/Przygotowanie danych/recipeData.csv", sep = ",", na.strings = c("N/A","NA","?","]"))
+styleData <- read.csv("C:/Users/Natalia/Desktop/Studia II stopnia/Semestr 2/Przygotowanie danych/styleData.csv", sep = ",", na.strings = c("N/A","NA","?","]"))
+```
+
+## Cel badania
+
+Zbiór danych zawiera podstawowe dane dotyczące przepisów na piwo. Celem badania będzie przeprowadzenie analizy skupień, aby zidentyfikować grupy przepisów, które wykorzystują podobne ilości wykorzystanej wody, drożdży i cukru oraz techniki warzenia piwa. Ostatecznie wyniki takiej analizy mogłby posłużyć do tworzenia na stronie czy aplikacji sekcji pt.: "Polecane dla Ciebie". Patrząc z którego skupienia piwowar wybiera przepisy, można by było rekomendować mu kolejne przepisy z danego skupienia. Ponieważ ilość wykorzystanych składników oraz technika wrzenia piwa może wpłynąć na podobieństwo smaku czy aromatu piwa. Jeżeli osoba często wybiera przepisy z danego skupienia, to bardzo możliwe, że polubi ich resztę, a sam mógłby ich nie znaleźć na stronie zawierającej masę danych.
+
+## Opis zmiennych znajdujących się w zbiorze
+
+```{r}
+n <- nrow(recipeData)
+c <- ncol(recipeData)
+cat("Zbiór danych składa się z ", n, "wierszy. Czyli z ", n, "przepisów piwa. Każde z nich jest opisane przez ", c, "zmiennych.")
+```
+Poniżej sprawdzono, czy napewno nie mamy zduplikowanych całych rekordów danych:
+
+```{r}
+if (anyDuplicated(recipeData)) {
+  print("Występują zduplikowane rekordy w tabeli danych.")
+} else {
+  print("Brak zduplikowanych rekordów w tabeli danych.")
+}
+```
+Przy opisie niektórych z poniższych zmiennych dokonano również porządku w nich - sprawdzono, czy przyjmują tak zwane logiczne wartości.
+
+**BeerID**
+
+Zmienna pierwsza to BeerID. Jest ona identyfikatorem piwa/rekordu. Jest ona wyrażona na skali nominalnej. Jest to zmienna ilościowa.
+
+
+**Name**
+
+Zmienna zawierająca nazwę piwa nadaną przez piwowara, który stworzył przepis. Jest to zmienna jakościowa.
+
+
+**URL**
+
+Zmienna zawierająca lokalizację strony interentowej wraz z przepisem na dane piwo. Jest to zmienna jakościowa.
+
+**Style**
+
+Zmienna informująca o rodzaju piwa. Jest ona wyrażona na skali nominalnej. Jest to zmienna jakościowa.
+
+```{r}
+#table(recipeData$Style) to tak dla kogoś kto chce popatrzeć w ramach tabelki o wiele lepiej patrzy się na wykres
+library(ggplot2)
+ggplot(recipeData , aes(x=factor(Style), fill=factor(Style))) +
+  geom_bar() +
+  theme(legend.position="none")
+```
+Z wykresu ciężko jest odczytać cokolwiek z osi X. Zatem warto zrobić ten wykres na kolejnej zmiennej. Będzie oznaczał to samo, a StyleID będzie można odczytać z `syleData`.
+
+**StyleID**
+
+Zmienna wskazująca na identyfiaktor typu/rodzaju piwa. Jest wyrażona na skali nominalnej. Jest to zmienna ilościowa.
+
+```{r}
+#table(recipeData$StyleID)
+ggplot(recipeData , aes(x=factor(StyleID), fill=factor(StyleID))) +
+  geom_bar() +
+  theme(legend.position="none")
+```
+```{r}
+bar_counts <- table(recipeData$StyleID)
+max_count <- max(bar_counts)
+
+max_style <- names(bar_counts[bar_counts == max_count])
+
+cat("Najwięcej jest przepisów na piwa o ID",max_style, "i jest to rodzaj", styleData[max_style,1])
+
+```
+
+**Size.L**
+
+Zmienna Size.L wyraża ilość nawarzonego piwa w litrach. Jest wyrażona na zmiennej ilorazowej i jest zmienną ilościową.
+
+```{r}
+summary(recipeData$Size.L.)
+```
+```{r}
+ggplot(recipeData, aes(x=Size.L.)) + 
+  geom_histogram(color="white", fill="darkgrey")+coord_cartesian(xlim = c(1, 1500))
+```
+
+**OG**
+
+Zmienna opisuje ciężar właściwy brzeczki przed fermentacją (kg/m^3). Według danych ze strony food-info zakres wartości może zawierać się od 1.02 do 1.16. Sprawdźmy czy faktycznie tak u nas jest:
+
+```{r}
+if (all(recipeData$OG >= 1.02 & recipeData$OG <= 1.16)) {
+  print("Każda wartość z kolumny OG znajduje się w przedziale od 1.02 do 1.16.")
+} else {
+  print("Nie wszystkie wartości z kolumny OG znajdują się w przedziale od 1.02 do 1.16.")
+}
+```
+Część wartości nie jest poprawna, zatem musiał wystąpić jakiś błąd przy wpisywaniu. Zatem należy usunąć takie rekordy. W tym celu aby nie tracić początkowych danych, tworzę nową zmienną i z niej usuwam te rekordy. W dalszych częściach przygotowania danych będę korzystać z tej okrojonej wersji danych.
+
+```{r}
+dane <- subset(recipeData, OG >= 1.02 & OG <= 1.16 | is.na(OG))
+if (all(dane$OG >= 1.02 & dane$OG <= 1.16)) {
+  print("Każda wartość z kolumny OG znajduje się w przedziale od 1.02 do 1.16.")
+} else {
+  print("Nie wszystkie wartości z kolumny OG znajdują się w przedziale od 1.02 do 1.16.")
+}
+```
+
+Zmienna jest zmienną ilościową i jest na skali ilorazowej.
+
+```{r}
+summary(dane$OG)
+```
+```{r}
+ggplot(dane, aes(x=OG)) + 
+  geom_histogram(color="white", fill="darkgrey")
+```
+
+**FG**
+
+Zmienna opisuje wartość ciężaru brzeczki po fermentacji (kg/m^3). Jest to zmienna ilościowa i jest na skali ilorazowej. Według danych zawsze musi zachodzić nierówność, że OG > FG.
+
+```{r}
+if (any(dane$OG <= dane$FG)) {
+  subset_data <- subset(dane, OG <= FG)
+  print(subset_data)
+} else {
+  print("Brak sytuacji, gdy OG nie jest większe od FG.")
+}
+
+dane1 <- subset(dane, !(OG <= FG) | is.na(FG))
+
+if (any(dane1$OG <= dane1$FG)) {
+  subset_data <- subset(dane1, OG <= FG)
+  print(subset_data)
+} else {
+  print("Brak sytuacji, gdy OG nie jest większe od FG.")
+}
+```
+Zostały usunięte dwa wprowadzone przepisy, ponieważ również zawierały nielogiczne wartości. 
+
+```{r}
+summary(dane1$FG)
+```
+```{r}
+ggplot(dane1, aes(x=FG)) + 
+  geom_histogram(color="white", fill="darkgrey")
+```
+
+**ABV**
+
+Ta zmienna opisuje objętościowy udział alkoholu w %. Jest to zmienna ilościowa oraz jest wyrażona na skali ilorazowej.
+
+```{r}
+summary(dane1$ABV)
+```
+```{r}
+ggplot(dane1, aes(x=ABV)) + 
+  geom_histogram(color="white", fill="darkgrey")
+```
+
+**IBU**
+
+Zmienna, która opisuje międzynarodową jednostkę określającą stopień goryczki piwnej. 1 IBU odpowiada zawartości 1 mg izo-alfa kwasów pochodzących z chmielu w 1 litrze piwa. Jest to zmienna ilościowa i jest wyrażona na skali przedziałowej. 
+
+```{r}
+summary(dane1$IBU)
+```
+```{r}
+#table(dane1$IBU)
+ggplot(dane1, aes(x=IBU)) + 
+  geom_histogram(color="white", fill="darkgrey")
+
+```
+
+**Color**
+
+Jest to zmienna określająca czy piwo zaliczamy do jasnego czy ciemnego (SRM). Od 0 do 40, gdzie 0 oznacza barwę "jasno słomkową", a 40 "ciemnoczarny". Wartości mogą przekraczać 40, ale ocena jest mniej dokładna. Zmienna jest określona na skali porządkowej.
+
+```{r}
+summary(dane1$Color)
+```
+```{r}
+#table(dane1$Color)
+ggplot(dane1, aes(x=Color)) + 
+  geom_histogram(color="white", fill="darkgrey")
+```
+
+**BoilSize**
+
+Zmienna określa ilość płynu na początku wrzenia w litach. Jest ona wyrażona na skali ilorazowej.
+
+```{r}
+summary(dane1$BoilSize)
+```
+```{r}
+ggplot(dane1, aes(x=BoilSize)) + 
+  geom_histogram(color="white", fill="darkgrey")
+```
+
+**BoilTime**
+
+Ta zmienna opisuje czas gotowanie brzeczki (min). Jest to zmienna ilościowa i jest opisana na skali ilorazowej. Czas trwania gotowania nie możebyć niedodatni. Zatem należy usunąć rekordy, gdzie zmienne przyjmują wartość ujemną bądź zero.
+
+```{r}
+summary(dane1$BoilTime)
+```
+
+```{r}
+dane2 <- subset(dane1, BoilTime > 0 | is.na(BoilTime))
+
+```
+
+```{r}
+summary(dane2$BoilTime)
+```
+```{r}
+ggplot(dane2, aes(x=BoilTime)) + 
+  geom_histogram(color="white", fill="darkgrey")
+```
+
+**BoilGravity**
+
+Ta zmienna opisuje ciężar właściwy brzeczki przed zagotowaniem. Jest to zmienna ilościowa oraz wyrażona jest na skali ilorazowej.
+
+```{r}
+summary(dane2$BoilGravity, na.rm = T)
+```
+Pojawiła się zmienna NA's oznacza, to że w tej zmiennej zaczynamy mieć braki.
+Nie ma co robić wykresu tutaj, ponieważ gdy dane zostaną zaimputowane to histogram zmieni swój kształt. W kolejnym punkcie braki danych zostaną zilustrowane.
+
+**Efficiency**
+
+Jest to zmienna opisująca wydajność ekstrakcji zaciru piwnego - ekstrakcja cukrów z ziarna podczas zacierania (%). Jest to zmianna ilościowa oraz wyrażona jest na skali przedziałowej.
+
+```{r}
+summary(dane2$Efficiency)
+```
+```{r}
+ggplot(dane2 , aes(x=factor(Efficiency), fill=factor(Efficiency))) +
+  geom_bar() +
+  theme(legend.position="none")
+```
+
+```{r}
+ggplot(dane2, aes(x=Efficiency)) + 
+  geom_histogram(color="white", fill="darkgrey")
+```
+
+**MashThickness**
+
+Jest to zmienna opisująca ilość wody w litrach na kg ziarna. Jest to zmienna ilościowa oraz jest wyrażona na skali przedziałowej.
+
+```{r}
+summary(dane2$MashThickness)
+```
+Nie da się stworzyć piwa bez wody więc, trzeba wyrzucić dane które mają zerową ilość.
+
+```{r}
+dane3 <- subset(dane2, MashThickness > 0 | is.na(MashThickness))
+summary(dane3$MashThickness)
+```
+
+Z wyników statystyk opisowych widać, że tutaj też mamy braki danych.
+
+**SugarScale**
+
+Jest to zmienna zawierająca informację o skali do określenia stężenia rozpuszczonych substacji stałych w brzeczce. Jest to zmienna jakościowa i jest określona na skali nominalnej.
+
+```{r}
+#table(dane3$SugarScale)
+ggplot(dane3 , aes(x=factor(SugarScale), fill=factor(SugarScale))) +
+  geom_bar() +
+  theme(legend.position="none")
+```
+
+**BrewMethod**
+
+Jest to zmienna opisująca jaką metodę techniki warzenia zastosowano w danym przepisie. Jest to zmienna jakościowa i jest na skali nominalnej.
+
+```{r}
+#table(dane3$BrewMethod)
+ggplot(dane3 , aes(x=factor(BrewMethod), fill=factor(BrewMethod))) +
+  geom_bar() +
+  theme(legend.position="none")
+```
+
+**PitchRate**
+
+Jest to zmienna informująca o drożdżach dodanych do fermentora na jednostkę ciężaru (milion komórek na ml). Jest ona wyrażona na skali ilorazowej.
+
+```{r}
+summary(dane3$PitchRate)
+```
+Nie można do piwa nie użyć wcale drożdży, zatem trzeba się pozbyć takich rekordów.
+
+```{r}
+dane4 <- subset(dane3, PitchRate > 0 | is.na(PitchRate))
+summary(dane4$PitchRate)
+```
+
+**PrimingMethod**
+
+Jest to zmienna zawierająca dane o metodzie zalewania. Jest to dana jakościowa i jest na skali nominalnej.
+
+```{r}
+cat("Procentowy brak danych w tej kolumnie to: ",sum(is.na(dane4$PrimingMethod))/nrow(dane4)*100)
+```
+Nie mamy ponad 90% danych w tej kolumnie. Nie ma zatem sensu jej analizować czy też imputować.
+
+```{r}
+dane5 <- subset(dane4, select = -PrimingMethod)
+```
+
+**PrimingAmount**
+
+Zmienna opisuje ilość użytego cukru zasypowego. Nie da się określić tutaj jednostki miary, ponieważ każdy użytkownik wpisywał sobie jak mu wygodniej.
+
+```{r}
+cat("Procentowy brak danych w tej kolumnie to: ",sum(is.na(dane5$PrimingAmount))/nrow(dane5)*100)
+```
+
+Nie mamy ponad 90% danych w tej kolumnie. Nie ma zatem sensu jej analizować czy też imputować.
+
+```{r}
+dane6 <- subset(dane5, select = -PrimingAmount)
+```
+
+**UserId**
+
+Jest to zmienna która mówi o ID użytkownika, czyli osoby która wpisała ten przepis do bazy. Jest wyrażona na skali nominalnej.
+
+**PrimaryTemp**
+
+Ta zmienna przechowuje informację na temat temperatury w fazie fermentacji. Zmienna ta jest ilościowa i jest na skali przedziałowej.
+
+```{r}
+summary(dane6$PrimaryTemp)
+```
+
+Patrząc na wartości min i max, można stwierdzić, że raczej mamy do czynienia z dwoma skalami temperatur, Celcjusze i Farenheita. Ogólnie fermentacja ma szansę wgl się odbyć jeżeli temperatura jest większa niż 5 stopni C. Zatem należy wziąć pod uwagę tylko takie wartości oraz wartości od 40 uznać za wartości podane w F i zamienić je na C. Resztę należy wyrzucić, bo zapewne ktoś albo się pomylił, albo wpisywał sobie sztucznie dane.
+
+```{r}
+dane7 <- subset(dane6,dane6$PrimaryTemp > 5 | is.na(PrimaryTemp))
+dane8 <- dane7
+dane8$PrimaryTemp <- ifelse(dane8$PrimaryTemp >= 40, (dane8$PrimaryTemp - 32) * 5/9, dane8$PrimaryTemp)
+dane9 <- subset(dane8,dane8$PrimaryTemp > 5 | is.na(PrimaryTemp))
+#summary(dane9$PrimaryTemp)
+```
+
+```{r}
+#table(dane9$PrimaryTemp)
+ggplot(dane9 , aes(x=factor(PrimaryTemp), fill=factor(PrimaryTemp))) +
+  geom_bar() +
+  theme(legend.position="none")
+```
+
+## Imputacja zbioru danych
+
+Na samym początku sprawdźmy ile i w jakich kolumnach mamy braki danych:
+
+```{r}
+library("VIM")
+plot_missing<-aggr(dane9, col=c('darkgrey','tomato'),
+                   numbers=TRUE, sortVars=TRUE,
+                   labels=names(dane9), cex.axis=0.6,
+                   cex.lab=1.5,
+                   gap=1, ylab=c('Braki',"Wzór braków"))
+```
+
+```{r}
+summary(aggr(dane9, plot=FALSE))
+```
+
+Zmienna UserId nie wypływa na anlizę ani na cel badania. Imputowanie tej zmiennej również nie miałoby sensu. Ponieważ nie liczy się średniej ani mediany na zmiennej na skali nominalnej. Nie da się wymyślić ani podstawić dobrego identyfikatora użytkownika, aby było poprawnie.
+
+```{r}
+dane10 <- subset(dane9, select = -UserId)
+```
+
+Następnie zajmijmy się zmienną Style.
+
+```{r}
+#x <- subset(dane10, is.na(Style), select = StyleID)
+#print(x$StyleID)
+```
+
+Okazuje się, że jedynie nie ma wpisanego Stylu dla StyluID równego 111. Sprawdźmy jaki to styl korzystając z `styleData`.
+
+```{r}
+print(styleData[111,])
+```
+
+Jak widać w danych stylu również nie ma nazwy stylu piwa dla ID równego 111. Zatem odpadła możliwość impotowania danych z tej tabli. Sprawdzę jak wygląda reszta braków danych dal tego "tajemniczego" stylu. 
+
+```{r}
+braki <- subset(dane10, dane10$StyleID==111)
+colSums(is.na(braki))
+```
+
+Część danych mamy. Pokusiłabym się o imputację najbliższym sąsiadem. Nazwa stylu nie wpływa na sam smak czy aromat piwa o co najbardziej chodzi w tej analizie. A uzupełnienie najbliżej pasującym stylem pozwoli dalej na imputowanie warstawami. 
+
+```{r}
+imputed <- kNN(dane10, variable = "Style", k = 5)
+```
+
+```{r}
+dane11 <- subset(imputed, select = -ncol(imputed))
+```
+
+Name również zawiera 1 brak danych, zobaczmy jak wyglądają inne dane dla tej obserwcji:
+
+```{r}
+braki2 <- subset(dane11, is.na(Name))
+colSums(is.na(braki2))
+```
+
+Dana która nie ma nazwy zawiera wszystkie dane, szkoda tracić takiej i obserwacji w takim razie. Zwłaszcza, że sama nazwa ma bardzo mało wspólnego co do smaku piwa. Ze względu na to, że to tylko jedna nazwa to sama ją nadam:
+
+```{r}
+dane12 <- dane11
+y <- braki2$BeerID
+dane12$Name[dane12$BeerID == y] <- "Piwko"
+```
+
+BoilGravity, MashThickness, PitchRate i PrimaryTemp również mają braki danych. Z racji, że nie została jeszcze wykonana analiza wartości skrajnych, padł wybór na imputację medianą, zamiast imputację średnią. Aby było bardziej sensownie to policzone zostaną mediany dla konkretnych styli piwa i odpowiednio zostaną zaimputowane. Czyli takie imputowanie "warstwowo"
+
+```{r}
+library(dplyr)
+
+dane13 <- dane12 %>%
+  group_by(Style) %>%
+  mutate(BoilGravity = ifelse(is.na(BoilGravity), median(BoilGravity, na.rm = TRUE), BoilGravity))
+```
+
+```{r}
+colSums(is.na(dane13))
+```
+
+Został jeden brak danych, zobaczmy dlaczego:
+
+```{r}
+braki3 <- subset(dane13, is.na(BoilGravity))
+print(braki3)
+style_counts <- table(dane13$StyleID)
+print(style_counts[braki3$StyleID])
+med_BG <- median(dane13$BoilGravity, na.rm = TRUE)
+dane14 <- dane13
+dane14$BoilGravity <- ifelse(is.na(dane14$BoilGravity), med_BG, dane14$BoilGravity)
+colSums(is.na(dane14))
+```
+
+A zatem był jeden tylko z takim stylem piwa, wiec nie mogło zaimportować mediany dle tego stylu. Zatem została policzona ogólna mediana i została wstawiona w to miejsce.
+
+I w podobny sposób imputuję resztę danych:
+
+```{r}
+dane15 <- dane14 %>%
+  group_by(Style) %>%
+  mutate(MashThickness = ifelse(is.na(MashThickness), median(MashThickness, na.rm = TRUE), MashThickness))
+colSums(is.na(dane15))
+```
+```{r}
+dane16 <- dane15 %>%
+  group_by(Style) %>%
+  mutate(PitchRate = ifelse(is.na(PitchRate), median(PitchRate, na.rm = TRUE), PitchRate))
+colSums(is.na(dane16))
+```
+```{r}
+braki4 <- subset(dane16, is.na(PitchRate))
+print(braki4)
+style_counts <- table(dane16$StyleID)
+print(style_counts[braki4$StyleID])
+med_PR <- median(dane16$PitchRate, na.rm = TRUE)
+dane17 <- dane16
+dane17$PitchRate <- ifelse(is.na(dane17$PitchRate), med_PR, dane17$PitchRate)
+colSums(is.na(dane17))
+```
+
+```{r}
+dane18 <- dane17 %>%
+  group_by(Style) %>%
+  mutate(PrimaryTemp = ifelse(is.na(PrimaryTemp), median(PrimaryTemp, na.rm = TRUE), PrimaryTemp))
+colSums(is.na(dane18))
+```
+I tak jeszcze ostatecznie sprawdźmy czy są braki danych:
+
+```{r}
+cat("W danych występuje: ",sum(is.na(dane18)), "braków danych.")
+```
+
+## Analiza wartości skrajnych
+
+Do wykrycia wartości skrajnych stworzę wykresy: histogram, wykres punktowy (Q-Q) oraz wykres pudełkowy. Będzie można wtedy zobaczyć, graficznie czy jakieś obserwacje nie powinny zwrócić uwagi, że mogą być odstające. Następnie wybrano dodatkową metodę do identyfikacji wartości odsatjących.
+
+**Size.L.**
+```{r}
+library(gridExtra)
+hist(dane18$Size.L., main = "Histogram")
+boxplot(dane18$Size.L., main = "Boxplot",horizontal = T)
+qqnorm(dane18$Size.L., main = "Normal Q-Q plot")
+```
+Boxplot ewidentnie pokazuje, że występują wartości odstające i jest ich dużo.
+
+Sprawdzam, czy dane mają rozkład normalny. Ze względu na dużą ilość zmiennych nie używam testu `shapiro.test()`. Zamiast niego użyję test Kolmogorova-Smirnova:
+
+```{r}
+ks.test(dane18$Size.L., "pnorm")
+```
+Na podstawie tego testu odrzucam hipotezę zerową, która mówi że dane pochodzą z rozkładu normalnego. 
+
+Metoda IQR jest przydatna, gdy dane nie mają rozkłądun normlanego, zatem wykorzystam ją:
+
+```{r}
+summary(dane18$Size.L.)
+IQR(dane18$Size.L.)
+```
+```{r}
+T_min_1 <- 18.93-(1.5*4.07)
+T_max_1 <- 23+(1.5*4.07)
+odst_1 <- c(dane18$Size.L.[which(dane18$Size.L.<T_min_1 | dane18$Size.L.>T_max_1)])
+```
+
+Po przyjrzeniu się histogramowi podjęto decyzję o usunięciu wartości skrajnych, ponieważ nie jest możliwe aby użyć tylu litrów wody do wyrobu piwa. Ktoś ewidentnie musiał się pomylić wpisując dane. 
+
+```{r}
+dane19 <- subset(dane18, Size.L. > T_min_1 & Size.L. < T_max_1)
+```
+
+```{r}
+boxplot(dane19$Size.L., main = "Boxplot",horizontal = T)
+```
+Nadal boxplot pokazuje wartości odstające ale są już one w granicach normy.
+
+**OG**
+```{r}
+library(gridExtra)
+hist(dane19$OG, main = "Histogram")
+boxplot(dane19$OG, main = "Boxplot",horizontal = T)
+qqnorm(dane19$OG, main = "Normal Q-Q plot")
+```
+Boxpot pokazuje, że istnieją wartości odsatjące. Ale wygląda on lepiej niż przy poprzedniej zmiennej.
+
+Sprawdzam, czy dane mają rozkład normalny. Ze względu na dużą ilość zmiennych nie używam testu `shapiro.test()`. Zamiast niego użyję test Kolmogorova-Smirnova:
+
+```{r}
+ks.test(dane19$OG, "pnorm")
+```
+Na podstawie tego testu odrzucam hipotezę zerową, która mówi że dane pochodzą z rozkładu normalnego. 
+
+Metoda IQR jest przydatna, gdy dane nie mają rozkłądun normlanego, zatem wykorzystam ją:
+
+```{r}
+summary(dane19$OG)
+IQR(dane19$OG)
+```
+
+```{r}
+T_min_2 <- 1.051-(1.5*0.017)
+T_max_2 <- 1.068+(1.5*0.017)
+odst_2 <- c(dane19$OG[which(dane19$OG<T_min_2 | dane19$OG>T_max_2)])
+length(odst_2)
+```
+Według metody IQR mamy 2282 wartości odstających. Zważając jednak na histogram i na max wartość uważam nie ma tutaj potrzeby odrzucać skrajnych wartości.
+
+**FG**
+
+```{r}
+library(gridExtra)
+hist(dane19$FG, main = "Histogram")
+boxplot(dane19$FG, main = "Boxplot",horizontal = T)
+qqnorm(dane19$FG, main = "Normal Q-Q plot")
+```
+Boxplot pokazuje, że istnieją wartości odstające.
+
+Sprawdzam, czy dane mają rozkład normalny. Ze względu na dużą ilość zmiennych nie używam testu `shapiro.test()`. Zamiast niego użyję test Kolmogorova-Smirnova:
+
+```{r}
+ks.test(dane19$FG, "pnorm")
+```
+Na podstawie tego testu odrzucam hipotezę zerową, która mówi że dane pochodzą z rozkładu normalnego. 
+
+Metoda IQR jest przydatna, gdy dane nie mają rozkłądun normlanego, zatem wykorzystam ją:
+
+```{r}
+summary(dane19$FG)
+IQR(dane19$FG)
+```
+
+```{r}
+T_min_3 <- 1.011-(1.5*0.005)
+T_max_3 <- 1.016+(1.5*0.005)
+odst_3 <- c(dane19$FG[which(dane19$FG<T_min_3 | dane19$FG>T_max_3)])
+length(odst_3)
+```
+Według metody IQR mamy 2506 wartości odstających. Uważam, że w tym przypadku jak i w poprzednim nie warto wyrzucać skrajnych wartości bo mogą być one przydatne w dalszym badaniu.
+
+**ABV**
+
+```{r}
+library(gridExtra)
+hist(dane19$ABV, main = "Histogram")
+boxplot(dane19$ABV, main = "Boxplot",horizontal = T)
+qqnorm(dane19$ABV, main = "Normal Q-Q plot")
+```
+Boxplot pokazuje, że są wartości odstające.
+
+Sprawdzam, czy dane mają rozkład normalny. Ze względu na dużą ilość zmiennych nie używam testu `shapiro.test()`. Zamiast niego użyję test Kolmogorova-Smirnova:
+
+```{r}
+ks.test(dane19$ABV, "pnorm")
+```
+Na podstawie tego testu odrzucam hipotezę zerową, która mówi że dane pochodzą z rozkładu normalnego. 
+
+Metoda IQR jest przydatna, gdy dane nie mają rozkłądun normlanego, zatem wykorzystam ją:
+
+```{r}
+summary(dane19$ABV)
+IQR(dane19$ABV)
+```
+```{r}
+T_min_4 <- 5.090-(1.5*1.76)
+T_max_4 <- 6.850+(1.5*1.76)
+odst_4 <- c(dane19$AVG[which(dane19$AVG<T_min_4 | dane19$AVG>T_max_4)])
+length(odst_4)
+```
+Według metody IQR mamy brak wartości odstających.
+
+**IBU**
+
+```{r}
+library(gridExtra)
+hist(dane19$IBU, main = "Histogram")
+boxplot(dane19$IBU, main = "Boxplot",horizontal = T)
+qqnorm(dane19$IBU, main = "Normal Q-Q plot")
+```
+
+Boxplot wskazuje na istnienie wartości odstających.
+
+Sprawdzam, czy dane mają rozkład normalny. Ze względu na dużą ilość zmiennych nie używam testu `shapiro.test()`. Zamiast niego użyję test Kolmogorova-Smirnova:
+
+```{r}
+ks.test(dane19$IBU, "pnorm")
+```
+
+Na podstawie tego testu odrzucam hipotezę zerową, która mówi że dane pochodzą z rozkładu normalnego. 
+
+Metoda IQR jest przydatna, gdy dane nie mają rozkłądun normlanego, zatem wykorzystam ją:
+
+```{r}
+summary(dane19$IBU)
+IQR(dane19$IBU)
+```
+
+```{r}
+T_min_5 <- 24.08-(1.5*33.92)
+T_max_5 <- 58.00+(1.5*33.92)
+odst_5 <- c(dane19$IBU[which(dane19$IBU<T_min_5 | dane19$IBU>T_max_5)])
+length(odst_5)
+```
+
+Obserwując histogram oraz boxplot uważam, że w przypadku tej zmiennej należy usunąć wartości obserwacje z odstającymi wartościami.
+
+```{r}
+dane20 <- subset(dane19, IBU > T_min_5 & IBU < T_max_5)
+```
+
+```{r}
+boxplot(dane20$IBU, main = "Boxplot",horizontal = T)
+```
+
+**Color**
+
+```{r}
+library(gridExtra)
+hist(dane20$Color, main = "Histogram")
+boxplot(dane20$Color, main = "Boxplot",horizontal = T)
+qqnorm(dane20$Color, main = "Normal Q-Q plot")
+```
+Boxplot wskazuje na istnienie wartości odstających.
+
+Sprawdzam, czy dane mają rozkład normalny. Ze względu na dużą ilość zmiennych nie używam testu `shapiro.test()`. Zamiast niego użyję test Kolmogorova-Smirnova:
+
+```{r}
+ks.test(dane20$Color, "pnorm")
+```
+
+Na podstawie tego testu odrzucam hipotezę zerową, która mówi że dane pochodzą z rozkładu normalnego. 
+
+Metoda IQR jest przydatna, gdy dane nie mają rozkłądun normlanego, zatem wykorzystam ją:
+
+```{r}
+summary(dane20$Color)
+IQR(dane20$Color)
+```
+```{r}
+T_min_6 <- 5.25-(1.5*12)
+T_max_6 <- 17.25+(1.5*12)
+odst_6 <- c(dane20$OG[which(dane20$Color<T_min_6 | dane20$Color>T_max_6)])
+length(odst_6)
+```
+
+Mamy 4509 skrajnych wartości. Patrząc na histogram oraz boxplot uważam, że powinny zostać wyrzucone te obserwacje. Skala w kolorach przeważnie nie jest aż tak duża, zatem usunę wartości odstające.
+
+```{r}
+dane21 <- subset(dane20, Color > T_min_6 & Color < T_max_6)
+```
+
+```{r}
+boxplot(dane21$Color, main = "Boxplot",horizontal = T)
+```
+
+Ostatecznie na boxplocie nadal widać odstające wartości ale one są już w normie do dalszego badania.
+
+**BoilSize**
+
+```{r}
+hist(dane21$BoilSize, main = "Histogram")
+boxplot(dane21$BoilSize, main = "Boxplot",horizontal = T)
+qqnorm(dane21$BoilSize, main = "Normal Q-Q plot")
+```
+
+Boxplot wskazuje na istnienie wartości odstających.
+
+Sprawdzam, czy dane mają rozkład normalny. Ze względu na dużą ilość zmiennych nie używam testu `shapiro.test()`. Zamiast niego użyję test Kolmogorova-Smirnova:
+
+```{r}
+ks.test(dane21$BoilSize, "pnorm")
+```
+
+Na podstawie tego testu odrzucam hipotezę zerową, która mówi że dane pochodzą z rozkładu normalnego. 
+
+Metoda IQR jest przydatna, gdy dane nie mają rozkłądun normlanego, zatem wykorzystam ją:
+
+```{r}
+summary(dane21$BoilSize)
+IQR(dane21$BoilSize)
+```
+
+```{r}
+T_min_7 <- 22.71-(1.5*5.68)
+T_max_7 <- 28.39+(1.5*5.68)
+odst_7 <- c(dane21$BoilSize[which(dane21$BoilSize<T_min_7 | dane21$BoilSize>T_max_7)])
+length(odst_7)
+```
+
+Mamy 5774 odstającyh danych. Aczkolwiek uważam że należy usunąć najpierw maksymalną wartość i wtedy jeszcze zobaczyć na boxplot.
+
+```{r}
+index <- which.max(dane21$BoilSize)
+dane22 <- dane21[-index, ]
+```
+
+```{r}
+boxplot(dane22$BoilSize, main = "Boxplot",horizontal = T)
+```
+
+Na podstawie boxplota uważam, że powinno się zostawić resztę danych. Te wartości są możliwe do osiągniecia w naszym badaniu.
+
+**BoilTime**
+
+```{r}
+hist(dane22$BoilTime, main = "Histogram")
+boxplot(dane22$BoilTime, main = "Boxplot",horizontal = T)
+qqnorm(dane22$BoilTime, main = "Normal Q-Q plot")
+```
+
+Boxplot wskazuje na istnienie wartości odstających.
+
+Sprawdzam, czy dane mają rozkład normalny. Ze względu na dużą ilość zmiennych nie używam testu `shapiro.test()`. Zamiast niego użyję test Kolmogorova-Smirnova:
+
+```{r}
+ks.test(dane22$BoilTime, "pnorm")
+```
+
+Na podstawie tego testu odrzucam hipotezę zerową, która mówi że dane pochodzą z rozkładu normalnego. 
+
+Metoda IQR jest przydatna, gdy dane nie mają rozkłądun normlanego, zatem wykorzystam ją:
+
+```{r}
+summary(dane22$BoilTime)
+IQR(dane22$BoilTime)
+```
+
+```{r}
+T_min_8 <- 60-(1.5*0)
+T_max_8 <- 60+(1.5*0)
+odst_8 <- c(dane22$BoilTime[which(dane22$BoilTime<T_min_8 | dane22$BoilTime>T_max_8)])
+length(odst_8)
+```
+
+W testach wyszło, że wszytskie zmienne są odstające aczkolwiek zważając na charakter badania chcę zachować tą zmienność i nie redukuję danych. 
+
+**BoilGravity**
+
+```{r}
+hist(dane22$BoilGravity, main = "Histogram")
+boxplot(dane22$BoilGravity, main = "Boxplot",horizontal = T)
+qqnorm(dane22$BoilGravity, main = "Normal Q-Q plot")
+```
+
+Na podstawie boxplot widać że są wartości odstające od reszty.
+
+Sprawdzam, czy dane mają rozkład normalny. Ze względu na dużą ilość zmiennych nie używam testu `shapiro.test()`. Zamiast niego użyję test Kolmogorova-Smirnova:
+
+```{r}
+ks.test(dane22$BoilGravity, "pnorm")
+```
+Na podstawie tego testu odrzucam hipotezę zerową, która mówi że dane pochodzą z rozkładu normalnego. 
+
+Metoda IQR jest przydatna, gdy dane nie mają rozkłądun normlanego, zatem wykorzystam ją:
+
+```{r}
+summary(dane22$BoilGravity)
+IQR(dane22$BoilGravity)
+```
+
+```{r}
+T_min_9 <- 1.039-(1.5*0.017)
+T_max_9 <- 1.056+(1.5*0.017)
+odst_9 <- c(dane22$BoilGravity[which(dane22$BoilGravity<T_min_9 | dane22$BoilGravity>T_max_9)])
+length(odst_9)
+```
+
+Test wykazał istnienie wartości odstających, aczkowlwiek nie decyduję się na ich usunięcie ze względu na chęć zachowania zmieności.
+
+**Efficiency**
+
+```{r}
+hist(dane22$Efficiency, main = "Histogram")
+boxplot(dane22$Efficiency, main = "Boxplot",horizontal = T)
+qqnorm(dane22$Efficiency, main = "Normal Q-Q plot")
+```
+Boxplot wskazuje na istnienie wartości odstajacych, aczkolwiek jak na analizowaną ilość danych nie wydaje się być ich dużo.
+
+Sprawdzam, czy dane mają rozkład normalny. Ze względu na dużą ilość zmiennych nie używam testu `shapiro.test()`. Zamiast niego użyję test Kolmogorova-Smirnova:
+
+```{r}
+ks.test(dane22$Efficiency, "pnorm")
+```
+
+Na podstawie tego testu odrzucam hipotezę zerową, która mówi że dane pochodzą z rozkładu normalnego. 
+
+Metoda IQR jest przydatna, gdy dane nie mają rozkłądun normlanego, zatem wykorzystam ją:
+
+```{r}
+summary(dane22$Efficiency)
+IQR(dane22$Efficiency)
+```
+
+```{r}
+T_min_10 <- 65-(1.5*10)
+T_max_10 <- 75+(1.5*10)
+odst_10 <- c(dane22$Efficiency[which(dane22$Efficiency<T_min_10 | dane22$Efficiency>T_max_10)])
+length(odst_10)
+```
+
+Jest to zmienna mówiąca o efektywności, a więc uważam że każda ze zmiennych powinna zostać, mają one logiczne wartości ponieważ mieszczą się w przedziale 0-100.
+
+**MashThickness**
+
+```{r}
+hist(dane22$MashThickness, main = "Histogram")
+boxplot(dane22$MashThickness, main = "Boxplot",horizontal = T)
+qqnorm(dane22$MashThickness, main = "Normal Q-Q plot")
+```
+
+Sprawdzam, czy dane mają rozkład normalny. Ze względu na dużą ilość zmiennych nie używam testu `shapiro.test()`. Zamiast niego użyję test Kolmogorova-Smirnova:
+
+```{r}
+ks.test(dane22$MashThickness, "pnorm")
+```
+
+Na podstawie tego testu odrzucam hipotezę zerową, która mówi że dane pochodzą z rozkładu normalnego. 
+
+Metoda IQR jest przydatna, gdy dane nie mają rozkłądun normlanego, zatem wykorzystam ją:
+
+```{r}
+summary(dane22$MashThickness)
+IQR(dane22$MashThickness)
+```
+
+```{r}
+T_min_11 <- 1.5-(1.5*0.5)
+T_max_11 <- 2+(1.5*0.5)
+odst_11 <- c(dane22$MashThickness[which(dane22$MashThickness<T_min_11 | dane22$MashThickness>T_max_11)])
+length(odst_11)
+```
+
+W tym przypadku decyduję się na usunięcie skrajnych wartości ze względu na specyfikę zawartych wartości w zmiennej.
+
+```{r}
+dane23 <- subset(dane22, MashThickness > T_min_11 & MashThickness < T_max_11)
+```
+
+```{r}
+boxplot(dane23$MashThickness, main = "Boxplot",horizontal = T)
+```
+
+**PitchRate**
+
+```{r}
+hist(dane23$PitchRate, main = "Histogram")
+boxplot(dane23$PitchRate, main = "Boxplot",horizontal = T)
+qqnorm(dane23$PitchRate, main = "Normal Q-Q plot")
+```
+
+Sprawdzam, czy dane mają rozkład normalny. Ze względu na dużą ilość zmiennych nie używam testu `shapiro.test()`. Zamiast niego użyję test Kolmogorova-Smirnova:
+
+```{r}
+ks.test(dane23$PitchRate, "pnorm")
+```
+
+Na podstawie tego testu odrzucam hipotezę zerową, która mówi że dane pochodzą z rozkładu normalnego. 
+
+Metoda IQR jest przydatna, gdy dane nie mają rozkłądun normlanego, zatem wykorzystam ją:
+
+```{r}
+summary(dane23$PitchRate)
+IQR(dane23$PitchRate)
+```
+
+```{r}
+T_min_12 <- 0.5-(1.5*0.25)
+T_max_12 <- 0.75+(1.5*0.25)
+odst_12 <- c(dane23$PitchRate[which(dane23$PitchRate<T_min_12 | dane23$PitchRate>T_max_12)])
+length(odst_12)
+```
+
+Zważając na boxplot stwierdzam, że nie ma potrzeby wyrzucania wartości odstających. 
+
+**PrimaryTemp**
+
+```{r}
+hist(dane23$PrimaryTemp, main = "Histogram")
+boxplot(dane23$PrimaryTemp, main = "Boxplot",horizontal = T)
+qqnorm(dane23$PrimaryTemp, main = "Normal Q-Q plot")
+```
+
+Sprawdzam, czy dane mają rozkład normalny. Ze względu na dużą ilość zmiennych nie używam testu `shapiro.test()`. Zamiast niego użyję test Kolmogorova-Smirnova:
+
+```{r}
+ks.test(dane23$PrimaryTemp, "pnorm")
+```
+
+Na podstawie tego testu odrzucam hipotezę zerową, która mówi że dane pochodzą z rozkładu normalnego. 
+
+Metoda IQR jest przydatna, gdy dane nie mają rozkłądun normlanego, zatem wykorzystam ją:
+
+```{r}
+summary(dane23$PrimaryTemp)
+IQR(dane23$PrimaryTemp)
+```
+
+```{r}
+T_min_13 <- 18.33-(1.5*1.67)
+T_max_13 <- 20+(1.5*1.67)
+odst13 <- c(dane23$PrimaryTemp[which(dane23$PrimaryTemp<T_min_13 | dane23$PrimaryTemp>T_max_13)])
+length(odst13)
+```
+
+Ze względu na to, że zmienna opisuje temperaturę w takcie ważenia, a obserwacje mieszczą się w sensownych granicach to nie wyrzucam żadnej z odstających zmiennych.
+
+## Wybór zmiennych do badania
+
+Zacznijmy od wyzacznia macierzy korelacji:
+
+```{r}
+k <- dane23[, c("Size.L.", "OG", "FG", "ABV", "IBU", "Color", "BoilSize", "BoilTime", "BoilGravity", "Efficiency", "MashThickness", "PitchRate", "PrimaryTemp")]
+korelacje <- cor(k)
+print(korelacje)
+```
+
+```{r}
+duzo <- which(korelacje > 0.5 & korelacje != 1, arr.ind = TRUE)
+
+for (i in 1:nrow(duzo)) {
+  row <- duzo[i, 1]
+  col <- duzo[i, 2]
+  corr_value <- korelacje[row, col]
+  var1 <- colnames(k)[row]
+  var2 <- colnames(k)[col]
+  cat("Korelacja między", var1, "a", var2, "jest większa od 0,5:", corr_value, "\n")
+}
+
+```
+
+```{r}
+dane24 <- subset(dane23, select = -c(OG, FG, BoilSize))
+```
+
+Zatem do badania wybieram następującą macierz danych, ze zmiennymi: Size.L., ABV, IBU, Color, BoilTime, BoilGravity, Efficiency, MashThickness, PitchRate i PrimaryTemp oraz StyleID, które umożliwi losowanie warstwowe.
+
+```{r}
+ostateczne_dane <- subset(dane23, select = c(Size.L., ABV, IBU, Color, BoilTime, BoilGravity, Efficiency, MashThickness, PitchRate, PrimaryTemp, StyleID))
+```
+
+## Wybór jednostek do badania
+
+Wybór jednostek do badania, wybieram korzystając z losowania warstwowego, ponieważ daje ono reprezentację różnych podgrup populacji w próbie.
+
+```{r}
+library(dplyr)
+probka <- ostateczne_dane %>%
+  group_by(StyleID) %>%
+  sample_frac(0.17)
+
+print(probka)
+
+```
